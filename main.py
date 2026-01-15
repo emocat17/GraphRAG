@@ -8,7 +8,7 @@ from shutil import copyfile
 from Data.QueryDataset import RAGQueryDataset
 import pandas as pd
 from Core.Utils.Evaluation import Evaluator
-
+from Core.Common.Logger import define_log_level
 
 
 def check_dirs(opt):
@@ -65,6 +65,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     opt = Config.parse(Path(args.opt), dataset_name=args.dataset_name)
+    # Re-configure logger with correct path including dataset name
+    define_log_level(name=os.path.join(opt.working_dir, opt.exp_name))
+    
     digimon = GraphRAG(config=opt)
     result_dir = check_dirs(opt)
 
