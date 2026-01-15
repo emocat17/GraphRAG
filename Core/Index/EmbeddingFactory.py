@@ -76,7 +76,7 @@ class RAGEmbeddingFactory(GenericFactory):
             model_name=config.embedding.model,
             cache_folder=config.embedding.cache_folder,
             device = "cuda",
-            target_devices = ["cuda:7"],
+            # target_devices = ["cuda:7"],
             embed_batch_size = 128,
         )
         if config.embedding.cache_folder == "":
