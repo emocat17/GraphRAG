@@ -4,7 +4,7 @@
 
 ## 1. 方法扩展架构概述
 
-*   **Config (配置)**: `Option/Method/*.yaml` 定义方法参数，通过 `retriever.query_type` 和 `graph.graph_type` 路由到具体的类。
+*   **Config (配置)**: `Option/Method/*.yaml` 定义方法参数，通过 `retriever.query_type` 和 `graph.graph_type` 路由到具体的类；并通过 `query.query_type` 控制输出模式（`qa` / `summary`）。
 *   **Query (查询)**: 继承 `Core.Query.BaseQuery.BaseQuery`，实现检索和生成逻辑。
 *   **Graph (图构建)**: 继承 `Core.Graph.BaseGraph.BaseGraph`，实现图的构建和存储逻辑。
 *   **Factory (工厂)**: 修改 `QueryFactory` 和 `GraphFactory` 注册您的新类。
@@ -22,6 +22,7 @@ retriever:
   query_type: my_query  # 对应 QueryFactory 中的 key
 
 query:
+  query_type: qa
   # 您自定义的参数，将在 Query 类中通过 self.config 获取
   my_param_1: 100
   enable_hybrid: True
@@ -33,40 +34,38 @@ query:
 
 ```python
 from Core.Query.BaseQuery import BaseQuery
+from Core.Common.Constants import Retriever
 
 class MyQuery(BaseQuery):
     def __init__(self, config, retriever_context):
         super().__init__(config, retriever_context)
-        # config 对应 yaml 中的 query 部分
 
-    async def _retrieve_relevant_contexts(self, query: str):
-        """
-        核心检索逻辑
-        Args:
-            query: 用户问题
-        Returns:
-            query: 处理后的查询
-            context: 检索到的上下文文本
-        """
-        # 示例：使用向量检索
-        results = await self._retriever.retrieve_relevant_content(
-            type="chunk", # 或 "entity", "relation"
-            query=query,
-            top_k=self.config.retrieve_top_k
+    async def _retrieve_relevant_contexts(self, **kwargs):
+        query = kwargs["query"]
+        entity_datas = await self._retriever.retrieve_relevant_content(
+            type=Retriever.ENTITY,
+            mode="vdb",
+            seed=query,
+            top_k=self.config.top_k,
         )
-        context = "\n".join([r['content'] for r in results])
-        return query, context
+        chunks = await self._retriever.retrieve_relevant_content(
+            type=Retriever.CHUNK,
+            mode="entity_occurrence",
+            node_datas=entity_datas or [],
+        )
+        if not chunks:
+            return ""
+        if isinstance(chunks, list):
+            return "\n".join(chunks)
+        return str(chunks)
 
     async def generation_summary(self, query, context):
-        """生成总结/回答"""
         if not context:
             return "No context found."
-        # 调用 LLM
         prompt = f"Context: {context}\nQuestion: {query}\nAnswer:"
         return await self.llm.aask(prompt)
 
     async def generation_qa(self, query, context):
-        """生成问答对（通常与 generation_summary 类似，视需求而定）"""
         return await self.generation_summary(query, context)
 ```
 
@@ -74,14 +73,12 @@ class MyQuery(BaseQuery):
 打开 `Core/Query/QueryFactory.py`，在 `__init__` 中添加您的映射：
 
 ```python
-# 导入您的类
 from Core.Query.MyQuery import MyQuery
 
 class QueryFactory:
     def __init__(self):
         self.creators = {
-            # ... 现有映射 ...
-            "my_query": self._create_my_query, # Key 对应 yaml 中的 retriever.query_type
+            "my_query": self._create_my_query,
         }
 
     @staticmethod
@@ -98,11 +95,9 @@ from Core.Graph.BaseGraph import BaseGraph
 
 class MyGraph(BaseGraph):
     async def _extract_entity_relationship(self, chunk_key_pair):
-        # 实现从文本块提取实体和关系的逻辑
         pass
 
     async def _build_graph(self, chunks):
-        # 实现图构建的主流程
         pass
 ```
 
@@ -115,8 +110,7 @@ from Core.Graph.MyGraph import MyGraph
 class GraphFactory:
     def __init__(self):
         self.creators = {
-            # ...
-            "my_graph": self._create_my_graph, # Key 对应 yaml 中的 graph.graph_type
+            "my_graph": self._create_my_graph,
         }
     
     @staticmethod
@@ -139,3 +133,15 @@ Prompt 定义在 `Core/Prompt/` 目录下的 Python 文件中（如 `GraphPrompt
 
 ### 6.2 Retriever 定制
 如果需要自定义底层的检索原子操作（如特殊的向量检索策略），可以查看 `Core/Retriever/RetrieverFactory.py` 并使用 `@register_retriever_method` 装饰器注册新的检索方法。
+
+#### 6.2.1 内置 Retriever 类型与可用 mode
+`BaseQuery` 内部通过 `MixRetriever` 调度不同类型的 Retriever，调用形如：
+`await self._retriever.retrieve_relevant_content(type=Retriever.CHUNK, mode="from_relation", ...)`
+
+各类型默认支持的 `mode`（来自各 Retriever 的 `mode_list`）如下：
+
+*   **ChunkRetriever (`type=Retriever.CHUNK`)**: `entity_occurrence`, `ppr`, `from_relation`, `aug_ppr`
+*   **EntityRetriever (`type=Retriever.ENTITY`)**: `ppr`, `vdb`, `from_relation`, `tf_df`, `all`, `by_neighbors`, `link_entity`, `get_all`, `from_relation_by_agent`
+*   **RelationshipRetriever (`type=Retriever.RELATION`)**: `entity_occurrence`, `from_entity`, `ppr`, `vdb`, `from_entity_by_agent`, `get_all`, `by_source&target`
+*   **CommunityRetriever (`type=Retriever.COMMUNITY`)**: `from_entity`, `from_level`
+*   **SubgraphRetriever (`type=Retriever.SUBGRAPH`)**: `concatenate_information_return_list`, `induced_subgraph_return_networkx`, `k_hop_return_set`, `paths_return_list`, `neighbors_return_list`
