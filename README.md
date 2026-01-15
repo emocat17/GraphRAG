@@ -86,7 +86,7 @@ python main.py -opt Option/Method/GraphRAG.yaml -dataset_name your_dataset
 
 Ensure you have the required dependencies installed (The default experiment name is digimon):
 ```bash
-conda env create -f experiment.yml -n your_experiment_name
+conda env create -f experiment.yml -n rag
 ```
 #### Supported LLM Backends
 
