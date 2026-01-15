@@ -2,6 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-/Core/Storage/__pycache__/*
+Core/Storage/__pycache__/  # 去掉开头的 /，让它在任何子目录都生效
 
-/Output/*
+Output/  # 直接写目录名，会忽略仓库根目录下的整个 Output 文件夹
