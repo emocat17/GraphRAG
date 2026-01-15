@@ -19,6 +19,6 @@ data_root:  "YOUR_ROOT_DATA" # Root directory for data
 
 
 
-working_dir: ./ # Result directory for the experiment
+working_dir: ./Output # Result directory for the experiment
 exp_name:  # Experiment name
 # 

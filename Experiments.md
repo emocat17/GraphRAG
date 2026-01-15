@@ -1,157 +1,151 @@
-# GraphRAG (DIGIMON) 项目完整使用指南
+# GraphRAG (DIGIMON) 项目使用指南
 
-> **注意**：本项目是一个**命令行实验框架**，用于评估不同的 GraphRAG 方法。它**不是**一个带有 Web UI 的服务，也没有独立的数据库初始化脚本。所有的操作均通过 `main.py` 命令行入口进行。
-
-## 1. 项目配置体系
-
-项目的配置由“基础配置”和“方法配置”两层组成。
-
-### 1.1 基础环境配置
-- **配置文件位置**: `Option/Config2.yaml` (以及代码中的 `Option/Config2.py` 默认值)
-- **主要作用**: 配置 LLM（大模型）、Embedding（向量模型）、工作目录和数据根目录。
-- **关键配置项**:
-  ```yaml
-  llm:
-    api_type: "openai" # 或 "open_llm" (用于 Ollama/LlamaFactory)
-    base_url: "https://api.openai.com/v1" # 你的 API 地址
-    api_key: "sk-..." 
-    model: "gpt-4o"
-
-  embedding:
-    api_type: "hf" # 或 "openai"
-    model: "sentence-transformers/all-mpnet-base-v2"
-    api_key: "..." # 如果需要
-    dimensions: 768
-
-  data_root: "Data" # 数据集存放的根目录
-  working_dir: "Output" # 实验结果输出目录
-  ```
-
-### 1.2 方法配置 (Method Options)
-- **配置文件位置**: `Option/Method/*.yaml`
-- **主要作用**: 定义具体的 RAG 流程，包括分块策略、构图方式、检索策略和查询生成参数。
-- **示例文件**: `Option/Method/RAPTOR.yaml`
-- **如何修改**: 复制一份现有的 YAML 文件，修改其中的 `graph_type`, `retriever`, `query` 等参数即可定义一个新的实验方法。
+本指南基于 `d:\GitWorks\GraphRAG\README.md` 及项目实际代码结构整理，旨在提供清晰的配置、部署、运行及扩展说明。
 
 ---
 
-## 2. 部署与安装
+## 1. 配置指南 (Configuration)
 
-### 2.1 环境安装
-项目提供了 `experiment.yml` 用于创建 Conda 环境。
+本项目使用 YAML 文件进行配置，采用双层配置结构：**基础配置** (`Option/Config2.yaml`) 和 **方法配置** (`Option/Method/*.yaml`)。
 
-```bash
-# 1. 创建环境
-conda env create -f experiment.yml -n digimon
+### 1.1 配置文件结构
 
-# 2. 激活环境
-conda activate digimon
+*   **基础配置**: `Option/Config2.yaml`
+    *   包含全局通用的设置，如 LLM API Key、Embedding 模型、工作目录等。
+    *   **关键字段**:
+        *   `llm`: 设置 `api_key`, `base_url`, `model` (例如 `gpt-3.5-turbo`)。
+        *   `working_dir`: 实验数据和结果的存储根目录。
+*   **方法配置**: `Option/Method/` 目录下 (例如 `RAPTOR.yaml`, `KGP.yaml`)
+    *   针对特定 RAG 方法的参数覆盖。
+    *   **关键字段**:
+        *   `graph.graph_type`: 指定使用的图构建类 (如 `tree_graph`, `er_graph`)。
+        *   `retriever.query_type`: 指定使用的查询逻辑类 (如 `basic`, `ppr`, `tog`)。
+        *   `query`: 查询阶段的具体参数。
 
-# 3. (Windows 可选) 如果 yml 安装失败，建议手动安装核心依赖
-pip install torch transformers sentence-transformers networkx numpy pandas pyyaml loguru tiktoken openai pydantic
+### 1.2 修改配置示例
+
+在运行前，请确保 `Option/Config2.yaml` 中的 LLM 设置正确：
+
+```yaml
+llm:
+  api_type: "openai" # 或 "azure"
+  api_key: "sk-..."  # 您的 API Key
+  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o"
 ```
 
-### 2.2 数据准备
-项目默认支持的数据格式为 JSON，需放置在 `data_root` 指定的目录下（例如 `Data/HotpotQA/`）。
+---
 
-必须包含两个文件：
-1.  **`Corpus.json`**: 语料库（文档集合）。
-2.  **`Question.json`**: 问题集合（包含问题和参考答案）。
+## 2. 部署指南 (Deployment)
 
-*(详细数据格式将在下文“数据格式规范”中说明)*
+本项目是一个基于命令行的实验框架，建议使用 Conda 环境运行。
+
+### 2.1 环境准备
+
+1.  **创建 Conda 环境**:
+    ```bash
+    conda env create -f experiment.yml
+    conda activate graphrag
+    ```
+    *(注: 如果 `experiment.yml` 安装失败，可尝试手动安装核心依赖: `pip install -r requirements.txt`，如果项目中包含该文件)*
+
+### 2.2 数据集准备与配置 (Data Preparation)
+
+本项目支持配置多个数据集，通过文件夹名称进行管理。
+
+#### 2.2.1 目录结构规范
+所有数据集均存放于 `Data/` 目录下。每个数据集对应一个独立的文件夹（Folder Name 即为 `dataset_name`），文件夹内**必须**包含以下两个文件名（不可修改）：
+*   `Corpus.json`: 文档库文件
+*   `Question.json`: 问题集文件
+
+**目录结构示例**:
+```text
+d:\GitWorks\GraphRAG\Data\
+├── HotpotQA\              <-- 数据集名称: HotpotQA
+│   ├── Corpus.json        <-- 必须重命名为此
+│   └── Question.json      <-- 必须重命名为此
+├── MedicalQA\             <-- 数据集名称: MedicalQA
+│   ├── Corpus.json
+│   └── Question.json
+└── Finance_V1\            <-- 数据集名称: Finance_V1
+    ├── Corpus.json
+    └── Question.json
+```
+
+#### 2.2.2 文件格式说明
+文件采用 **JSONL (JSON Lines)** 格式，每行一个独立的 JSON 对象。
+
+*   **Corpus.json (文档库)**
+    ```json
+    {"title": "文档标题1", "context": "文档内容全文...", "id": 0}
+    {"title": "文档标题2", "context": "文档内容全文...", "id": 1}
+    ```
+    *   `title`: 文档标题
+    *   `context`: 文档正文内容 (构建图谱和检索的基础)
+    *   `id`: 文档唯一标识
+
+*   **Question.json (问题集)**
+    ```json
+    {"question": "你的问题是什么？", "answer": "参考答案(可选)"}
+    {"question": "第二个问题...", "answer": "参考答案"}
+    ```
+    *   `question`: 用于测试的问题文本
+    *   `answer`: (可选) 用于评估的参考答案
+
+#### 2.2.3 常见问题 (FAQ)
+> **Q: 我下载的 HotpotQA 有很多领域的数据，如何处理？**
+> **A:** 您需要在 `Data/` 下为每个领域创建一个独立的文件夹，并将该领域的数据文件放入并重命名。例如：
+> *   将生物领域数据放入 `Data/HotpotQA_Bio/` 并重命名为 `Corpus.json` 和 `Question.json`。
+> *   将金融领域数据放入 `Data/HotpotQA_Finance/` 并重命名。
+> *   运行时分别使用 `-dataset_name HotpotQA_Bio` 和 `-dataset_name HotpotQA_Finance`。
 
 ---
 
-## 3. 运行实验
+## 3. 运行指南 (Running)
+
+项目入口为 `main.py`，通过命令行参数指定配置文件和数据集。
 
 ### 3.1 启动命令
-使用 `main.py` 运行实验。你需要指定**方法配置文件**和**数据集名称**。
+
+使用 `-dataset_name` 参数指定 `Data/` 目录下的文件夹名称。
 
 ```bash
-# 语法
-python main.py -opt <方法配置文件路径> -dataset_name <数据集目录名>
+# 基本用法
+python main.py -opt Option/Method/<MethodName>.yaml -dataset_name <DatasetName>
 
-# 示例：在 HotpotQA 数据集上运行 RAPTOR 方法
+# 示例 1：运行默认的 HotpotQA 数据集
 python main.py -opt Option/Method/RAPTOR.yaml -dataset_name HotpotQA
+
+# 示例 2：运行自定义的 MedicalQA 数据集 (对应 Data/MedicalQA 目录)
+python main.py -opt Option/Method/RAPTOR.yaml -dataset_name MedicalQA
 ```
 
-> **Windows 用户提示**: 建议在路径中使用正斜杠 `/` 或确保路径分隔符正确，避免转义问题。
+### 3.2 运行流程说明
 
-### 3.2 运行流程
-当你运行上述命令时，系统会依次执行以下步骤（由 `main.py` 编排）：
-1.  **加载配置**: 合并 `Config2.yaml` 和指定的 `-opt` YAML 文件。
-2.  **数据加载**: 读取 `Corpus.json` 和 `Question.json`。
-3.  **构建/加载图与索引 (Insert Stage)**:
-    - 文档分块 (Chunking)
-    - 构建图 (Building Graph): 如 TreeGraph, PassageGraph 等。
-    - 构建向量索引 (Index Building): 对实体、关系或子图建立索引。
-4.  **执行查询 (Query Stage)**:
-    - 遍历 `Question.json` 中的问题。
-    - 根据配置的 `Retriever` 和 `Query` 策略生成答案。
-5.  **评估 (Evaluation Stage)**:
-    - 调用 `Evaluator` 计算指标（如准确率等）。
-    - 结果保存在 `working_dir/<dataset_name>/<exp_name>/` 目录下。
+`main.py` 会依次执行以下步骤：
+1.  **Chunking**: 读取指定数据集下的 `Corpus.json` 并切分为文本块。
+2.  **Build Graph**: 根据配置 (`graph_type`) 构建知识图谱。
+3.  **Index Building**: 为实体和关系构建向量索引。
+4.  **Query**: 读取指定数据集下的 `Question.json` 进行回答。
+5.  **Evaluation**: (可选) 如果配置了评估模块，会自动评估回答质量。
 
-### 3.3 输出结果
-运行完成后，检查 `working_dir`（默认为当前目录或 `Output`）下的文件夹：
-- `Results/results.json`: 包含每个问题的模型回答。
-- `Metrics/metrics.json`: 包含整体评测指标。
-- `Configs/`: 本次运行的配置备份。
+### 3.3 结果查看
+
+运行结果将保存在 `Option/Config2.yaml` 中 `working_dir` 指定的目录下，通常结构为：
+`<working_dir>/<dataset_name>/<exp_name>/Results/results.json`
+
+例如：`d:\GitWorks\GraphRAG\exp\HotpotQA\default\Results\results.json`
 
 ---
 
-## 4. 高级配置与扩展
+## 4. 自定义 RAG 方法开发指南
 
-### 4.1 数据格式规范
-项目要求数据存放在 `data_root/<DatasetName>/` 下，且必须包含以下两个文件（JSONL 格式）：
+如果您希望在 GraphRAG 框架中实现自己的 RAG 方法（如自定义图构建或检索逻辑），请参考独立的开发指南文档：
 
-#### 1. `Corpus.json` (文档库)
-每一行是一个 JSON 对象，包含文档的标题和内容。
-```json
-{"title": "文档标题1", "context": "文档内容全文...", "id": 0}
-{"title": "文档标题2", "context": "文档内容全文...", "id": 1}
-```
-*(注意：代码中读取字段为 `title` 和 `context`，`doc_id` 会自动生成)*
+👉 **[自定义 RAG 方法开发指南 (GraphAdd.md)](GraphAdd.md)**
 
-#### 2. `Question.json` (问答对)
-每一行是一个 JSON 对象，包含问题和参考答案。
-```json
-{"question": "你的问题是什么？", "answer": "参考答案文本"}
-{"question": "第二个问题...", "answer": "答案..."}
-```
-
-### 4.2 支持的图类型 (Graph Types)
-在方法配置文件（如 `Option/Method/*.yaml`）中，`graph.graph_type` 参数支持以下值（对应 `Core/Graph` 中的实现）：
-
-| 类型名称 | 描述 | 对应类 |
-| :--- | :--- | :--- |
-| `er_graph` | 实体-关系图 (Entity-Relationship Graph) | `ERGraph` |
-| `tree_graph` | 树状图 (如 RAPTOR 使用) | `TreeGraph` |
-| `tree_graph_balanced` | 平衡树状图 | `TreeGraphBalanced` |
-| `passage_graph` | 段落图 (Passage Graph) | `PassageGraph` |
-| `rkg_graph` | 丰富知识图谱 (Rich Knowledge Graph) | `RKGraph` |
-
-### 4.3 提示词 (Prompt) 定制
-目前项目的 Prompt **不是**通过 YAML 配置的，而是直接定义在 Python 代码中。
-- **文件位置**: `Core/Prompt/` 目录。
-- **主要文件**:
-    - `GraphPrompt.py`: 包含实体抽取、关系抽取等构建图所需的 Prompt。
-    - `QueryPrompt.py`: 包含回答生成、重写问题等查询阶段的 Prompt。
-    - `RaptorPrompt.py`: 专门用于 RAPTOR 方法的 Prompt。
-
-若需修改 Prompt，请直接编辑上述 Python 文件中的字符串常量（如 `ENTITY_EXTRACTION`）。
-
-### 4.4 增加新的 RAG 方法（配置驱动）
-不需要写代码，只需组合现有的算子。
-1.  在 `Option/Method/` 下新建 `MyMethod.yaml`。
-2.  修改关键参数，例如：
-    - `graph.graph_type`: 切换图类型（如 `tree_graph` vs `passage_graph`）。
-    - `retriever.query_type`: 切换查询策略（如 `basic` vs `ppr`）。
-3.  运行 `python main.py -opt Option/Method/MyMethod.yaml ...`。
-
-### 4.5 开发新的组件（代码驱动）
-如果配置无法满足需求，需要在 `Core/` 目录下开发新类：
-- **新检索器**: 在 `Core/Retriever/` 下继承 `BaseRetriever`，并在 `RetrieverFactory` 注册。
-- **新图结构**: 在 `Core/Graph/` 下继承 `BaseGraph`，并在 `GraphFactory` 注册。
-- **新查询逻辑**: 在 `Core/Query/` 下继承 `BaseQuery`，并在 `QueryFactory` 注册。
-
+该文档详细说明了如何：
+1.  创建新的方法配置文件。
+2.  继承 `BaseQuery` 实现自定义检索逻辑。
+3.  继承 `BaseGraph` 实现自定义图结构。
+4.  在工厂类中注册您的新组件。
