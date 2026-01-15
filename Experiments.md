@@ -4,6 +4,42 @@
 
 ---
 
+## 0. 本地模型快速启动 (Quick Start with Local Models)
+
+如果您希望使用本地部署的模型（如 Llama 3）进行实验，请按照以下流程操作。
+
+### 0.1 准备工作
+1.  **环境准备**: 确保已按照 README 创建并激活了 `rag` Conda 环境。
+    ```bash
+    conda activate rag
+    ```
+2.  **模型准备**: 确保以下模型文件已存在于服务器：
+    *   Chat Model: `/root/model/LLM-Research/Meta-Llama-3-8B-Instruct`
+    *   Embedding Model: `/root/model/BAAI/bge-m3`
+3.  **配置确认**: 项目已预置了本地运行的配置文件 `Option/Config2.yaml`，其中指定了使用本地 `vllm` 服务和 HuggingFace Embedding。
+
+### 0.2 一键启动服务
+我们提供了一个脚本来自动启动 vLLM 服务（用于 Chat）并检查环境。
+
+在项目根目录下运行：
+```bash
+./start_services.sh
+```
+*   该脚本会后台启动 `vllm` 服务（端口 8000），并等待其就绪。
+*   服务启动后，脚本会提示您可以运行的测试命令。
+
+### 0.3 运行实验
+服务启动成功后，您可以使用以下命令运行实验（以 RAPTOR 方法 + hotpotqa 数据集为例）：
+
+```bash
+# 确保在 rag 环境下
+python main.py -opt Option/Method/RAPTOR.yaml -dataset_name hotpotqa
+```
+
+*   **注意**: 运行命令时，系统会自动读取 `Option/Config2.yaml` 中的本地模型配置，并结合 `RAPTOR.yaml` 中的算法参数进行实验。
+
+---
+
 ## 1. 配置指南 (Configuration)
 
 本项目使用 YAML 文件进行配置，采用双层配置结构：**基础配置** (`Option/Config2.yaml`) 和 **方法配置** (`Option/Method/*.yaml`)。此外，代码还会尝试读取用户目录下的覆盖配置：`~/Option/Config2.yaml`（用于放置自己的 API Key、data_root 等本机参数）。
