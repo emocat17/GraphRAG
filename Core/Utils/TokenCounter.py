@@ -270,6 +270,7 @@ TOKEN_MAX = {
     "yi-large": 16385,
     "microsoft/wizardlm-2-8x22b": 65536,
     "meta-llama/llama-3-70b-instruct": 8192,
+    "Meta-Llama-3-8B-Instruct": 8192,
     "llama3-70b-8192": 8192,
     "openai/gpt-3.5-turbo-0125": 16385,
     "openai/gpt-4-turbo-preview": 128000,
@@ -380,7 +381,9 @@ def count_input_tokens(messages, model="gpt-3.5-turbo-0125"):
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        logger.info(f"Warning: model {model} not found in tiktoken. Using cl100k_base encoding.")
+        # Suppress warning for Llama-3 models as we know we are using cl100k_base as a fallback approximation
+        if "Llama-3" not in model and "Meta-Llama" not in model:
+            logger.info(f"Warning: model {model} not found in tiktoken. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
     if model in {
         "gpt-3.5-turbo-0613",
@@ -429,6 +432,9 @@ def count_input_tokens(messages, model="gpt-3.5-turbo-0125"):
         """
         tokens_per_message = 0  # ignore conversation message template prefix
         tokens_per_name = 0
+    elif "Llama-3" in model or "Meta-Llama" in model:
+        tokens_per_message = 3
+        tokens_per_name = 1
     else:
         raise NotImplementedError(
             f"num_tokens_from_messages() is not implemented for model {model}. "

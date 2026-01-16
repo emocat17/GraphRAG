@@ -87,6 +87,11 @@ class Config(WorkingParams, YamlModel):
         opt += [Config.read_yaml(path) for path in default_config_paths]
     
         final = merge_dict(opt)
+        
+        # Use the configuration filename as the experiment name
+        if _path and _path.stem:
+            final["exp_name"] = _path.stem
+
         final["dataset_name"] = dataset_name
         final["working_dir"] = os.path.join(final["working_dir"], dataset_name)
         return Config(**final)

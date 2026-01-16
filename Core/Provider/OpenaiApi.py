@@ -128,6 +128,30 @@ class OpenAILLM(BaseLLM):
             kwargs.pop("max_tokens")
         if max_tokens != None:
             kwargs["max_tokens"] = max_tokens
+        
+        # FIX: Llama-3-8B Context Window Overflow
+        # Error: 'max_tokens' (4096) > 8192 - input_tokens (e.g. 4832)
+        # We need to dynamically adjust max_tokens if the input is too long.
+        if "Llama-3-8B" in self.model:
+             # Calculate approximate input tokens to adjust max_tokens
+             try:
+                 from Core.Utils.TokenCounter import count_input_tokens
+                 input_tokens = count_input_tokens(messages, self.model)
+                 model_max_context = 8192
+                 safe_buffer = 100 # Buffer for safety
+                 available_tokens = model_max_context - input_tokens - safe_buffer
+                 
+                 current_max_tokens = kwargs.get("max_tokens", 4096)
+                 
+                 if available_tokens < current_max_tokens:
+                     if available_tokens > 0:
+                         logger.warning(f"Adjusting max_tokens from {current_max_tokens} to {available_tokens} for Llama-3-8B to fit context window.")
+                         kwargs["max_tokens"] = available_tokens
+                     else:
+                         logger.warning(f"Input tokens {input_tokens} exceed model context {model_max_context}. Request may fail.")
+             except Exception as e:
+                 logger.warning(f"Failed to calculate token count for dynamic adjustment: {e}")
+
         if extra_kwargs:
             kwargs.update(extra_kwargs)
         return kwargs
