@@ -178,17 +178,3 @@ python main.py -opt Option/Method/RAPTOR.yaml -dataset_name MedicalQA
 `<working_dir>/<dataset_name>/<exp_name>/Results/results.json`
 
 例如（默认 `working_dir: ./Output` 且 `exp_name: default`）：`.\Output\HotpotQA\default\Results\results.json`
-
----
-
-## 4. 自定义 RAG 方法开发指南
-
-如果您希望在 GraphRAG 框架中实现自己的 RAG 方法（如自定义图构建或检索逻辑），请参考独立的开发指南文档：
-
-👉 **[自定义 RAG 方法开发指南 (GraphAdd.md)](GraphAdd.md)**
-
-该文档详细说明了如何：
-1.  创建新的方法配置文件。
-2.  继承 `BaseQuery` 实现自定义检索逻辑。
-3.  继承 `BaseGraph` 实现自定义图结构。
-4.  在工厂类中注册您的新组件。
