@@ -18,7 +18,5 @@ embedding:
 data_root:  "/home/Gitworks/GraphRAG/Data" # Root directory for data
 
 
-
 working_dir: ./Output # Result directory for the experiment
-exp_name:  test_experiment # Experiment name
-# 
+exp_name:  test_experiment # Experiment name 

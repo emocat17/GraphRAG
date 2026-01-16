@@ -76,3 +76,13 @@ bash stop_services.sh
     *   否则，自动回退到 CPU (sklearn) 版本。
 *   **效果**: 在大数据集上，聚类速度可提升数倍，且 CPU 利用率会更均衡（移除了人为的串行等待）。
 *   **无需额外操作**: 只要正确设置了 `CUDA_VISIBLE_DEVICES`，加速功能会自动生效。
+
+
+
+```sh
+grep -c "Core.Common.CostManager:update_cost" /home/Gitworks/GraphRAG/Output/hotpotqa/LightRAG/Logs/20260116130706.log
+```
+
+```sh
+du -sh /home/Gitworks/GraphRAG/Output/hotpotqa
+```
