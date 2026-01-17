@@ -33,7 +33,7 @@ def wrapper_query(query_dataset, digimon, result_dir):
     all_res = []
 
     dataset_len = len(query_dataset)
-    print(f"Total number of queries: {dataset_len}")
+    print(f"---------------Total number of queries: {dataset_len}-----------------------")
     # dataset_len = 10
     
     for _, i in enumerate(range(dataset_len)):
