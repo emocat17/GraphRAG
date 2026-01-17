@@ -40,6 +40,12 @@ Service Status:
 ```bash
 export CUDA_VISIBLE_DEVICES=4,5,6,7
 /root/anaconda3/envs/rag/bin/python main.py -opt Option/Method/RAPTOR.yaml -dataset_name hotpotqa
+
+export CUDA_VISIBLE_DEVICES=4,5,6,7
+/root/anaconda3/envs/rag/bin/python main.py -opt Option/Method/LightRAG.yaml -dataset_name multihop-rag
+
+export CUDA_VISIBLE_DEVICES=2,3,4,5,6,7
+/root/anaconda3/envs/rag/bin/python main.py -opt Option/Method/LightRAG.yaml -dataset_name multihop-rag
 ```
 
 ### 参数说明

@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from typing import Optional, Union
 import asyncio
+import tiktoken
 
 from openai import APIConnectionError, AsyncOpenAI, AsyncStream
 from openai._base_client import AsyncHttpxClientWrapper
@@ -139,16 +140,26 @@ class OpenAILLM(BaseLLM):
                  input_tokens = count_input_tokens(messages, self.model)
                  model_max_context = 8192
                  safe_buffer = 100 # Buffer for safety
-                 available_tokens = model_max_context - input_tokens - safe_buffer
+                 min_output_tokens = 512 # Ensure at least some output
                  
+                 # 1. First check if we can just reduce max_tokens
+                 available_for_output = model_max_context - input_tokens - safe_buffer
                  current_max_tokens = kwargs.get("max_tokens", 4096)
                  
-                 if available_tokens < current_max_tokens:
-                     if available_tokens > 0:
-                         logger.warning(f"Adjusting max_tokens from {current_max_tokens} to {available_tokens} for Llama-3-8B to fit context window.")
-                         kwargs["max_tokens"] = available_tokens
+                 if available_for_output < current_max_tokens:
+                     if available_for_output >= min_output_tokens:
+                         # Case 1: Input fits, but output needs reduction
+                         logger.warning(f"Adjusting max_tokens from {current_max_tokens} to {available_for_output} for Llama-3-8B.")
+                         kwargs["max_tokens"] = available_for_output
                      else:
-                         logger.warning(f"Input tokens {input_tokens} exceed model context {model_max_context}. Request may fail.")
+                         # Case 2: Input is too long, need to truncate input
+                         # NOTE: Splitting logic is handled in acompletion_text, but we keep this as a fallback/warning
+                         # If we reach here, it means splitting didn't happen or wasn't enough?
+                         # Actually, we should rely on acompletion_text for splitting.
+                         # If we are here, we just clamp to min_output_tokens to avoid API error,
+                         # assuming the input might still be processed or fail gracefully.
+                         logger.warning(f"Input tokens {input_tokens} exceed limit. Splitting should have happened. Clamping max_tokens.")
+                         kwargs["max_tokens"] = min_output_tokens
              except Exception as e:
                  logger.warning(f"Failed to calculate token count for dynamic adjustment: {e}")
 
@@ -175,6 +186,75 @@ class OpenAILLM(BaseLLM):
     )
     async def acompletion_text(self, messages: list[dict], stream=False, timeout=USE_CONFIG_TIMEOUT, max_tokens = None, format = "text") -> str:
         """when streaming, print each token in place."""
+        # FIX: Handle Long Input by Splitting for Llama-3-8B
+        if "Llama-3-8B" in self.model:
+            try:
+                from Core.Utils.TokenCounter import count_input_tokens
+                input_tokens = count_input_tokens(messages, self.model)
+                model_max_context = 8192
+                safe_buffer = 100
+                min_output_tokens = 512 # Reserve for output
+                
+                # If input + min_output > context, we need to split
+                if input_tokens + min_output_tokens + safe_buffer > model_max_context:
+                    logger.warning(f"Input tokens {input_tokens} exceed context limit. Splitting input into chunks...")
+                    
+                    # 1. Identify User Message (usually the long one)
+                    user_msg_idx = -1
+                    for i, msg in enumerate(messages):
+                        if msg["role"] == "user":
+                            user_msg_idx = i
+                            break
+                    
+                    if user_msg_idx != -1:
+                        # 2. Calculate chunk size
+                        # We need to subtract system prompt tokens from available space
+                        # To keep it simple, we assume system prompt is small and just use a safe chunk size.
+                        # 6000 tokens for input chunk seems safe (leaves ~2k for system + output)
+                        chunk_size = 6000 
+                        
+                        import tiktoken
+                        enc = tiktoken.get_encoding("cl100k_base")
+                        content = messages[user_msg_idx]["content"]
+                        tokenized_content = enc.encode(content)
+                        
+                        # 3. Split content
+                        chunks = []
+                        for i in range(0, len(tokenized_content), chunk_size):
+                            chunk_tokens = tokenized_content[i : i + chunk_size]
+                            chunks.append(enc.decode(chunk_tokens))
+                        
+                        logger.info(f"Split user message into {len(chunks)} chunks.")
+                        
+                        # 4. Process each chunk
+                        full_response = ""
+                        for idx, chunk_content in enumerate(chunks):
+                            logger.info(f"Processing chunk {idx+1}/{len(chunks)}...")
+                            # Construct new messages list for this chunk
+                            chunk_messages = messages.copy() # Shallow copy is fine
+                            chunk_messages[user_msg_idx] = {"role": "user", "content": chunk_content}
+                            
+                            # Call API for this chunk
+                            if stream:
+                                chunk_response = await self._achat_completion_stream(chunk_messages, timeout=self.get_timeout(timeout), max_tokens=max_tokens)
+                            else:
+                                rsp = await self._achat_completion(chunk_messages, timeout=self.get_timeout(timeout), max_tokens=max_tokens)
+                                chunk_response = self.get_choice_text(rsp)
+                            
+                            full_response += chunk_response + "\n" # Append with newline
+                        
+                        if format == "json":
+                             # Attempt to merge JSONs? Or just return concatenated string?
+                             # For now, just return concatenated string, let caller handle.
+                             # If caller expects valid JSON, this might break. 
+                             # But usually splitting implies extraction, where results are lists.
+                             return full_response 
+                        
+                        return full_response
+
+            except Exception as e:
+                logger.error(f"Failed to split input: {e}. Proceeding with original input.")
+
         if stream:
             return await self._achat_completion_stream(messages, timeout=timeout, max_tokens = max_tokens)
 

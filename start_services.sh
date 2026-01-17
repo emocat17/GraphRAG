@@ -10,11 +10,11 @@
 # Specify GPU IDs separated by commas (e.g., "0,1,2,3,4,5")
 # Note: Tensor Parallel size must divide the number of attention heads (32 for Llama 3 8B).
 # So we use 4 GPUs (32 is divisible by 4). 6 GPUs (32/6) is not allowed.
-VLLM_GPU_IDS="2,3"
+VLLM_GPU_IDS="2,3,4,5"
 
 # GPUs to reserve for Python/Main script (Embedding & Graph Ops)
 # These will NOT be used by vLLM.
-PYTHON_GPU_IDS="4,5,6,7"
+PYTHON_GPU_IDS="6,7"
 
 # vLLM Configuration
 VLLM_PORT=8000
@@ -58,7 +58,7 @@ else
     export CUDA_VISIBLE_DEVICES=$VLLM_GPU_IDS
     
     # Start vLLM in background
-    nohup python -m vllm.entrypoints.openai.api_server \
+    nohup $PYTHON_EXEC -m vllm.entrypoints.openai.api_server \
         --model $MODEL_PATH \
         --served-model-name $MODEL_NAME \
         --port $VLLM_PORT \
