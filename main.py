@@ -10,6 +10,7 @@ import pandas as pd
 from Core.Utils.Evaluation import Evaluator
 from Core.Common.Logger import define_log_level
 
+import json
 
 def check_dirs(opt):
     # For each query, save the results in a separate directory
@@ -32,7 +33,8 @@ def wrapper_query(query_dataset, digimon, result_dir):
     all_res = []
 
     dataset_len = len(query_dataset)
-    dataset_len = 10
+    print(f"Total number of queries: {dataset_len}")
+    # dataset_len = 10
     
     for _, i in enumerate(range(dataset_len)):
         query = query_dataset[i]
@@ -49,9 +51,18 @@ def wrapper_query(query_dataset, digimon, result_dir):
 async def wrapper_evaluation(path, opt, result_dir):
     eval = Evaluator(path, opt.dataset_name)
     res_dict = await eval.evaluate()
+    
+    # Format metrics: round floats to 4 decimal places
+    formatted_res = {}
+    for k, v in res_dict.items():
+        if isinstance(v, float):
+            formatted_res[k] = round(v, 4)
+        else:
+            formatted_res[k] = v
+            
     save_path = os.path.join(result_dir, "metrics.json")
     with open(save_path, "w") as f:
-        f.write(str(res_dict))
+        json.dump(formatted_res, f, indent=4)
 
 
 if __name__ == "__main__":
