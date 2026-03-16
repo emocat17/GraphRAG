@@ -8,6 +8,8 @@ from shutil import copyfile
 from Data.QueryDataset import RAGQueryDataset
 import pandas as pd
 from Core.Utils.Evaluation import Evaluator
+from concurrent.futures import ThreadPoolExecutor
+import nest_asyncio
 
 
 
@@ -28,17 +30,29 @@ def check_dirs(opt):
     return result_dir
 
 
-def wrapper_query(query_dataset, digimon, result_dir):
+def wrapper_query(query_dataset, digimon, result_dir, query_concurrency=1):
     all_res = []
 
     dataset_len = len(query_dataset)
     dataset_len = 10
-    
-    for _, i in enumerate(range(dataset_len)):
-        query = query_dataset[i]
-        res = asyncio.run(digimon.query(query["question"]))
-        query["output"] = res
-        all_res.append(query)
+
+    async def query_single(q_data):
+        res = await digimon.query(q_data["question"])
+        q_data["output"] = res
+        return q_data
+
+    if query_concurrency > 1:
+        nest_asyncio.apply()
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=query_concurrency) as executor:
+            futures = [loop.run_in_executor(executor, lambda i=i: asyncio.run(query_single(query_dataset[i])), i) for i in range(dataset_len)]
+            all_res = list(futures)
+    else:
+        for _, i in enumerate(range(dataset_len)):
+            query = query_dataset[i]
+            res = asyncio.run(digimon.query(query["question"]))
+            query["output"] = res
+            all_res.append(query)
 
     all_res_df = pd.DataFrame(all_res)
     save_path = os.path.join(result_dir, "results.json")
@@ -62,6 +76,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-opt", type=str, help="Path to option YMAL file.")
     parser.add_argument("-dataset_name", type=str, help="Name of the dataset.")
+    parser.add_argument("--query_concurrency", type=int, default=1, help="Number of concurrent queries.")
     args = parser.parse_args()
 
     opt = Config.parse(Path(args.opt), dataset_name=args.dataset_name)
@@ -76,7 +91,7 @@ if __name__ == "__main__":
 
     asyncio.run(digimon.insert(corpus))
 
-    save_path = wrapper_query(query_dataset, digimon, result_dir)
+    save_path = wrapper_query(query_dataset, digimon, result_dir, args.query_concurrency)
 
     asyncio.run(wrapper_evaluation(save_path, opt, result_dir))
 

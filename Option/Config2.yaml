@@ -1,24 +1,24 @@
 llm:
   api_type: "open_llm" # or openai
-  base_url: 'YOUR_BASE_URL'
-  model: "YOUR_MODEL"
-  api_key: "YOUR_API_KEY"
-
+  base_url: 'http://localhost:8000/v1'
+  model: "Meta-Llama-3.1-8B-Instruct"
+  api_key: "EMPTY"
+  max_concurrent: 64
+  
 embedding:
-  api_type: "hf"  # or  ollama / openai.
-  # base_url: "https://cfcus02.opapi.win/v1"  # or forward url / other llm url
-  api_key: "YOUR_API_KEY"
-  model: "YOURMODEL"
+  api_type: "vllm"  # or hf / ollama / openai / vllm
+  base_url: "http://localhost:9000/v1"
+  api_key: "EMPTY"
+  model: "bge-m3"
   cache_dir: ""
-  dimensions: 1024
   max_token_size: 8102
   embed_batch_size: 128
   embedding_func_max_async: 16
  
-data_root:  "YOUR_ROOT_DATA" # Root directory for data
+data_root:  "/root/GraphRAG/Data" # Root directory for data
 
 
 
-working_dir: ./ # Result directory for the experiment
-exp_name:  # Experiment name
+working_dir: /root/GraphRAG/Output # Result directory for the experiment
+exp_name: GraphRAG
 # 

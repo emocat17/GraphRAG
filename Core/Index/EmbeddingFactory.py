@@ -28,6 +28,7 @@ class RAGEmbeddingFactory(GenericFactory):
             EmbeddingType.OPENAI: self._create_openai,
             EmbeddingType.OLLAMA: self._create_ollama,
             EmbeddingType.HF: self._create_hf,
+            EmbeddingType.VLLM: self._create_vllm,
         }
         super().__init__(creators)
 
@@ -82,6 +83,15 @@ class RAGEmbeddingFactory(GenericFactory):
         if config.embedding.cache_folder == "":
             del params["cache_folder"]
         return HuggingFaceEmbedding(**params)
+
+    def _create_vllm(self, config) -> HuggingFaceEmbedding:
+        # vLLM supports OpenAI-compatible API, use OpenAIEmbedding
+        params = dict(
+            api_key=config.embedding.api_key or config.llm.api_key,
+            api_base=config.embedding.base_url or config.llm.base_url,
+        )
+        self._try_set_model_and_batch_size(params, config)
+        return OpenAIEmbedding(**params)
     
     @staticmethod
     def _try_set_model_and_batch_size(params: dict, config):
