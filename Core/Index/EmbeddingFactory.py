@@ -84,8 +84,8 @@ class RAGEmbeddingFactory(GenericFactory):
             del params["cache_folder"]
         return HuggingFaceEmbedding(**params)
 
-    def _create_vllm(self, config) -> HuggingFaceEmbedding:
-        # vLLM supports OpenAI-compatible API, use OpenAIEmbedding
+    def _create_vllm(self, config) -> OpenAIEmbedding:
+        # vLLM is compatible with OpenAI API
         params = dict(
             api_key=config.embedding.api_key or config.llm.api_key,
             api_base=config.embedding.base_url or config.llm.base_url,

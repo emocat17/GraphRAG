@@ -3,7 +3,7 @@ set -euo pipefail
 
 DATASET_NAME="${DATASET_NAME:-multihop-rag}"
 METHOD_CONFIG="${METHOD_CONFIG:-Option/Method/HippoRAG.yaml}"
-QUERY_CONCURRENCY="${QUERY_CONCURRENCY:-16}"
+# QUERY_CONCURRENCY="${QUERY_CONCURRENCY:-16}"
 CPU_THREADS="${CPU_THREADS:-$(nproc)}"
 SKIP_GRAPH_BUILD="${SKIP_GRAPH_BUILD:-${SKIP_GRAPG_BUILD:-${skip_grapg_build:-0}}}"
 
@@ -66,7 +66,7 @@ RUN_ARGS=(
     -opt "${METHOD_CONFIG_PATH}"
     -dataset_name "${DATASET_NAME}"
 )
-RUN_ARGS+=(--query_concurrency "${QUERY_CONCURRENCY}")
+# RUN_ARGS+=(--query_concurrency "${QUERY_CONCURRENCY}")
 nohup "${PYTHON_BIN}" "${RUN_ARGS[@]}" > "${LOG_FILE}" 2>&1 &
 echo $! > "${PID_FILE}"
 disown

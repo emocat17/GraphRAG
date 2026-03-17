@@ -1,13 +1,13 @@
 llm:
   api_type: "open_llm" # or openai
-  base_url: 'http://localhost:8000/v1'
+  base_url: 'http://localhost:8001/v1'
   model: "Meta-Llama-3.1-8B-Instruct"
   api_key: "EMPTY"
   max_concurrent: 64
   
 embedding:
   api_type: "vllm"  # or hf / ollama / openai / vllm
-  base_url: "http://localhost:9000/v1"
+  base_url: "http://localhost:9001/v1"
   api_key: "EMPTY"
   model: "bge-m3"
   cache_dir: ""
